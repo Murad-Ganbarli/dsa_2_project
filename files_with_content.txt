@@ -1,0 +1,249 @@
+==================================================
+File: C:/Users/murad/Programming/DSA_2/Project\main.c
+==================================================
+#include <stdio.h>
+#include <stdlib.h>
+#include "workload.h" // Header file for workload data structures and functions
+#include "scheduler.h" // Header file for scheduling functions
+
+int main() {
+    // Declare variables to store workload data
+    struct workload_item_t workload[MAX_PROCESSES];
+    size_t workload_size = 0;
+
+    // Read workload data from input file
+    if (!read_workload("data/workload.txt", workload, &workload_size)) {
+        fprintf(stderr, "Error reading workload data from file\n");
+        return 1;
+    }
+    printf("Workload data read successfully\n");
+
+    // Schedule processes based on given rules
+    schedule_processes(workload, workload_size);
+    printf("Processes scheduled successfully\n");
+
+    // Print scheduling results
+    print_schedule(workload, workload_size);
+
+    return 0;
+}
+
+
+==================================================
+File: C:/Users/murad/Programming/DSA_2/Project\scheduler.c
+==================================================
+#include "scheduler.h"
+#include <stdio.h>
+
+#define MAX_PROCESSES 100 // Maximum number of processes
+#define MAX_TIME 20 // Maximum time steps
+
+void schedule_processes(struct workload_item_t *workload, size_t workload_size) {
+    // Initialize variables to track CPU occupation and process status
+    int cpu[MAX_TIME] = {0}; // Initialize CPU occupation for each time step
+
+    // Iterate over each process
+    for (size_t i = 0; i < workload_size; i++) {
+        // Initialize idle time for the current process
+        workload[i].idle = 0;
+
+        // Iterate over each time step
+        for (size_t t = workload[i].ts; t <= workload[i].tf; t++) {
+            // Check if the CPU is already occupied at this time step
+            if (cpu[t] == 0) {
+                // Mark CPU as occupied for the current time step
+                cpu[t] = 1;
+            } else {
+                // Increment idle time for the current process
+                workload[i].idle++;
+            }
+        }
+    }
+}
+
+
+void print_schedule(struct workload_item_t *workload, size_t workload_size) {
+    // Print header for the chronogram
+    printf("        ");
+    for (size_t t = 0; t < MAX_TIME; t++) {
+        if(t % 5 == 0)
+            printf("|");
+        else
+            printf(".");
+    }
+    printf("\n");
+
+    // Iterate over each process
+    for (size_t i = 0; i < workload_size; i++) {
+        // Print process command
+        printf("%-8s", workload[i].cmd);
+
+        // Initialize finish time and idle time for the process
+        size_t finish_time = 0;
+        size_t idle_time = 0;
+
+        // Print X for each time step where process is scheduled
+        for (size_t t = 0; t < MAX_TIME; t++) {
+            if (workload[i].ts <= t && t <= finish_time) {
+                printf("X");
+            } else {
+                printf(".");
+            }
+
+            // Update finish time and idle time
+            if (workload[i].ts <= t && t <= workload[i].tf) {
+                finish_time = workload[i].tf;
+            } else if (t > workload[i].tf) {
+                idle_time++;
+            }
+        }
+
+        // Print process finish time and idle time
+        printf("  (tf=%zu,idle=%zu)\n", finish_time, idle_time);
+    }
+}
+
+
+==================================================
+File: C:/Users/murad/Programming/DSA_2/Project\scheduler.h
+==================================================
+#ifndef SCHEDULER_H
+#define SCHEDULER_H
+
+#include "workload.h"
+
+// Function prototypes
+void schedule_processes(struct workload_item_t *workload, size_t workload_size);
+void print_schedule(struct workload_item_t *workload, size_t workload_size);
+
+#endif /* SCHEDULER_H */
+
+
+==================================================
+File: C:/Users/murad/Programming/DSA_2/Project\workload.c
+==================================================
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "workload.h"
+
+#define MAX_CMD_LENGTH 100 // Maximum length for command name
+
+int read_workload(const char *filename, struct workload_item_t *workload, size_t *workload_size) {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
+        fprintf(stderr, "Error opening file %s\n", filename);
+        return 0;
+    }
+
+    // Read workload data from file line by line
+    char line[MAX_CMD_LENGTH];
+    while ((*workload_size) < MAX_PROCESSES && fgets(line, sizeof(line), file) != NULL) {
+        // Tokenize the line to extract fields
+        char *token = strtok(line, " ");
+        if (token == NULL) {
+            fprintf(stderr, "Error parsing line: %s\n", line);
+            fclose(file);
+            return 0;
+        }
+
+        // Assign values to workload item fields
+        workload[*workload_size].pid = atoi(token);
+
+        token = strtok(NULL, " ");
+        if (token == NULL) {
+            fprintf(stderr, "Error parsing line: %s\n", line);
+            fclose(file);
+            return 0;
+        }
+        workload[*workload_size].ppid = atoi(token);
+
+        token = strtok(NULL, " ");
+        if (token == NULL) {
+            fprintf(stderr, "Error parsing line: %s\n", line);
+            fclose(file);
+            return 0;
+        }
+        workload[*workload_size].ts = (size_t)atoi(token);
+        token = strtok(NULL, " ");
+        if (token == NULL) {
+            fprintf(stderr, "Error parsing line: %s\n", line);
+            fclose(file);
+            return 0;
+        }
+        workload[*workload_size].tf = (size_t)atoi(token);
+        token = strtok(NULL, " ");
+        if (token == NULL) {
+            fprintf(stderr, "Error parsing line: %s\n", line);
+            fclose(file);
+            return 0;
+        }
+        workload[*workload_size].idle = (size_t)atoi(token);
+        
+        token = strtok(NULL, " ");
+        if (token == NULL) {
+            fprintf(stderr, "Error parsing line: %s\n", line);
+            fclose(file);
+            return 0;
+        }
+        // Allocate memory for command name and copy it
+        workload[*workload_size].cmd = strdup(token);
+        if (workload[*workload_size].cmd == NULL) {
+            fprintf(stderr, "Memory allocation error\n");
+            fclose(file);
+            return 0;
+        }
+
+        // assign to .prio (int )
+        token = strtok(NULL, " ");
+        if (token == NULL) {
+            fprintf(stderr, "Error parsing line: %s\n", line);
+            fclose(file);
+            return 0;
+        }
+        workload[*workload_size].prio = atoi(token);
+
+        
+        (*workload_size)++;
+    }
+
+    fclose(file);
+
+    for (size_t i = 0; i < *workload_size; i++) {
+        printf("%d %-5d %-3zu %-3zu %-3zu %-6s %d\n",
+               workload[i].pid, workload[i].ppid, workload[i].ts, workload[i].tf,
+               workload[i].idle, workload[i].cmd, workload[i].prio);
+    }
+
+    return 1;
+}
+
+
+==================================================
+File: C:/Users/murad/Programming/DSA_2/Project\workload.h
+==================================================
+#ifndef WORKLOAD_H
+#define WORKLOAD_H
+
+#include <stdio.h>
+
+// Define constants for maximum number of processes and other parameters
+#define MAX_PROCESSES 100
+
+// Define structure for workload item
+struct workload_item_t {
+    int pid;        //< the event id
+    int ppid;       //< the event parent id
+    size_t ts;      //< start date
+    size_t tf;      //< finish date
+    size_t idle;    //< total time the process has been idle;
+    char *cmd;      //< the binary name
+    int prio;       //< process priority
+};
+
+// Function prototypes
+int read_workload(const char *filename, struct workload_item_t *workload, size_t *workload_size);
+
+#endif /* WORKLOAD_H */
+
+
