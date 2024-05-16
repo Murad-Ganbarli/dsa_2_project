@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "queue.h"
+#include "workload_item.h"
 
 struct node {
     workload_item data;
@@ -9,41 +9,53 @@ struct node {
 
 typedef struct node Node;
 
-Node* front = NULL;
-Node* rear = NULL;
+typedef struct {
+    Node* front;
+    Node* rear;
+} Queue;
 
-void enqueue(workload_item item) {
+Queue* queue_init() {
+    Queue* queue = (Queue*)malloc(sizeof(Queue));
+    if (queue == NULL) {
+        printf("Memory allocation failed.\n");
+        exit(EXIT_FAILURE);
+    }
+    queue->front = NULL;
+    queue->rear = NULL;
+    return queue;
+}
+void enqueue(Queue* queue, workload_item item) {
     Node* newNode = (Node*)malloc(sizeof(Node));
     newNode->data = item;
     newNode->next = NULL;
-    if (front == NULL && rear == NULL) {
-        front = rear = newNode;
+    if (queue->front == NULL && queue->rear == NULL) {
+        queue->front = queue->rear = newNode;
     } else {
-        rear->next = newNode;
-        rear = newNode;
+        queue->rear->next = newNode;
+        queue->rear = newNode;
     }
 }
 
-void dequeue() {
-    if (front == NULL) {
+void dequeue(Queue* queue) {
+    if (queue->front == NULL) {
         printf("Queue is empty\n");
         return;
     }
-    Node* temp = front;
-    if (front == rear) {
-        front = rear = NULL;
+    Node* temp = queue->front;
+    if (queue->front == queue->rear) {
+        queue->front = queue->rear = NULL;
     } else {
-        front = front->next;
+        queue->front = queue->front->next;
     }
     free(temp);
 }
 
-void display() {
-    if (front == NULL) {
+void display(Queue* queue) {
+    if (queue->front == NULL) {
         printf("Queue is empty\n");
         return;
     }
-    Node* temp = front;
+    Node* temp = queue->front;
     while (temp != NULL) {
         printf("PID: %d, PPID: %d, Start: %zu, Finish: %zu, Idle: %zu, Command: %s, Priority: %d\n",
             temp->data.pid, temp->data.ppid, temp->data.ts, temp->data.tf, temp->data.idle, temp->data.cmd, temp->data.prio);

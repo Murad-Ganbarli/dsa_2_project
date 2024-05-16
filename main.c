@@ -1,8 +1,7 @@
 #include <stdio.h>
+#include "workload.h"
+#include "scheduler.h"
 #include <stdlib.h>
-#include "workload.h" // Header file for workload data structures and functions
-#include "scheduler.h" // Header file for scheduling functions
-
 int main() {
     // Declare variables to store workload data
     struct workload_item_t workload[MAX_PROCESSES];
@@ -15,6 +14,9 @@ int main() {
     }
     printf("Workload data read successfully\n");
 
+    // Sort workload items by starting time
+    qsort(workload, workload_size, sizeof(struct workload_item_t), compare_workload_items);
+
     // Schedule processes based on given rules
     schedule_processes(workload, workload_size);
     printf("Processes scheduled successfully\n");
@@ -24,3 +26,4 @@ int main() {
 
     return 0;
 }
+

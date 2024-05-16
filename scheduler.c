@@ -1,45 +1,69 @@
 #include "scheduler.h"
+#include "queue.h"
 #include <stdio.h>
+#include <stdlib.h>
 
-#define MAX_PROCESSES 100 // Maximum number of processes
-#define MAX_TIME 20 // Maximum time steps
-
+// Function to schedule processes using a queue
 void schedule_processes(struct workload_item_t *workload, size_t workload_size) {
-    // Initialize variables to track CPU occupation and process status
-    int cpu[MAX_TIME] = {0}; // Initialize CPU occupation for each time step
+    // Sort workload items by starting time
+    qsort(workload, workload_size, sizeof(struct workload_item_t), compare_workload_items);
 
-    // Iterate over each process
+    // Initialize CPU occupation and queues for pending and running processes
+    Queue *pendingQueue = createQueue();
+    Queue *runningQueue = createQueue();
+
+    // Enqueue all workload items into the pending queue
     for (size_t i = 0; i < workload_size; i++) {
-        // Find the earliest available time slot for the current process
-        size_t start_time = workload[i].ts;
-        while (start_time < MAX_TIME && cpu[start_time] != 0) {
-            start_time++;
+        enqueue(pendingQueue, &workload[i]);
+    }
+
+    // Simulate CPU scheduling
+    int time = 0;
+    while (!isEmpty(pendingQueue) || !isEmpty(runningQueue)) {
+        // Check for pending processes to start
+        while (!isEmpty(pendingQueue) && ((struct workload_item_t *)peek(pendingQueue))->ts <= time) {
+            struct workload_item_t *process = dequeue(pendingQueue);
+            printf("Process %s (PID: %d) started at time %d\n", process->cmd, process->pid, time);
+            enqueue(runningQueue, process);
         }
 
-        // Check if a valid time slot was found
-        if (start_time < MAX_TIME) {
-            // Assign the process to the CPU for the required duration
-            for (size_t t = start_time; t <= workload[i].tf && t < MAX_TIME; t++) {
-                cpu[t] = 1; // Mark CPU as occupied
+        // Execute the running process
+        if (!isEmpty(runningQueue)) {
+            struct workload_item_t *currentProcess = peek(runningQueue);
+            printf("Executing process %s (PID: %d) at time %d\n", currentProcess->cmd, currentProcess->pid, time);
+            currentProcess->tf--; // Decrement finish time
+            if (currentProcess->tf == 0) {
+                printf("Process %s (PID: %d) completed at time %d\n", currentProcess->cmd, currentProcess->pid, time);
+                dequeue(runningQueue);
             }
         } else {
-            printf("Error: Unable to schedule process %s\n", workload[i].cmd);
-            // You can choose to handle this error condition differently, such as skipping the process
+            printf("CPU idle at time %d\n", time);
         }
+
+        time++;
     }
+
+    // Free memory allocated for queues
+    freeQueue(pendingQueue);
+    freeQueue(runningQueue);
 }
 
 
+
+// Function to print schedule for current timestep
 void print_schedule(struct workload_item_t *workload, size_t workload_size) {
     // Print header for the chronogram
     printf("        ");
     for (size_t t = 0; t < MAX_TIME; t++) {
-        if(t % 5 == 0)
+        if (t % 5 == 0)
             printf("|");
         else
             printf(".");
     }
     printf("\n");
+
+    // Sort workload items by starting time
+    qsort(workload, workload_size, sizeof(struct workload_item_t), compare_workload_items);
 
     // Iterate over each process
     for (size_t i = 0; i < workload_size; i++) {
@@ -52,7 +76,7 @@ void print_schedule(struct workload_item_t *workload, size_t workload_size) {
 
         // Print X for each time step where process is scheduled
         for (size_t t = 0; t < MAX_TIME; t++) {
-            if (workload[i].ts <= t && t <= finish_time) {
+            if (workload[i].ts <= t && t <= workload[i].tf) {
                 printf("X");
             } else {
                 printf(".");

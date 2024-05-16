@@ -19,5 +19,5 @@ struct workload_item_t {
 
 // Function prototypes
 int read_workload(const char *filename, struct workload_item_t *workload, size_t *workload_size);
-
+int compare_workload_items(const void *a, const void *b);
 #endif /* WORKLOAD_H */

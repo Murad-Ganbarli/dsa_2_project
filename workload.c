@@ -93,3 +93,17 @@ int read_workload(const char *filename, struct workload_item_t *workload, size_t
 
     return 1;
 }
+
+// compare workload items
+int compare_workload_items(const void *a, const void *b) {
+    struct workload_item_t *item1 = (struct workload_item_t *)a;
+    struct workload_item_t *item2 = (struct workload_item_t *)b;
+
+    if (item1->ts < item2->ts) {
+        return -1;
+    } else if (item1->ts > item2->ts) {
+        return 1;
+    } else {
+        return 0;
+    }
+}

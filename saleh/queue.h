@@ -3,8 +3,21 @@
 
 #include "workload_item.h"
 
-void enqueue(workload_item item);
-void dequeue();
-void display();
+struct node {
+    workload_item data;
+    struct node* next;
+};
+
+typedef struct node Node;
+
+typedef struct {
+    Node* front;
+    Node* rear;
+} Queue;
+
+void enqueue(Queue* queue, workload_item item);
+void dequeue(Queue* queue);
+void display(Queue* queue);
+Queue* queue_init();
 
 #endif /* QUEUE_H */

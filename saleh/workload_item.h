@@ -1,6 +1,7 @@
 #ifndef WORKLOAD_ITEM_H
 #define WORKLOAD_ITEM_H
 
+#include <stddef.h>
 struct workload_item_t {
     int pid;         //< the event id
     int ppid;        //< the event parent id

@@ -17,7 +17,7 @@ def find_files(directory, output_file):
                         f.write("\n\n")
 
 # Specify the directory to search
-directory_to_search = "C:/Users/murad/Programming/DSA_2/Project"
+directory_to_search = "C:/Users/murad/Programming/DSA_2/Project/"
 
 # Specify the output file path
 output_file_path = 'files_with_content.txt'

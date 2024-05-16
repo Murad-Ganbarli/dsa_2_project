@@ -1,11 +1,10 @@
 ==================================================
-File: C:/Users/murad/Programming/DSA_2/Project\main.c
+File: C:/Users/murad/Programming/DSA_2/Project/main.c
 ==================================================
 #include <stdio.h>
+#include "workload.h"
+#include "scheduler.h"
 #include <stdlib.h>
-#include "workload.h" // Header file for workload data structures and functions
-#include "scheduler.h" // Header file for scheduling functions
-
 int main() {
     // Declare variables to store workload data
     struct workload_item_t workload[MAX_PROCESSES];
@@ -18,6 +17,9 @@ int main() {
     }
     printf("Workload data read successfully\n");
 
+    // Sort workload items by starting time
+    qsort(workload, workload_size, sizeof(struct workload_item_t), compare_workload_items);
+
     // Schedule processes based on given rules
     schedule_processes(workload, workload_size);
     printf("Processes scheduled successfully\n");
@@ -29,39 +31,166 @@ int main() {
 }
 
 
+
 ==================================================
-File: C:/Users/murad/Programming/DSA_2/Project\scheduler.c
+File: C:/Users/murad/Programming/DSA_2/Project/queue.c
 ==================================================
-#include "scheduler.h"
+#include "queue.h"
+#include <stdlib.h>
 #include <stdio.h>
 
-#define MAX_PROCESSES 100 // Maximum number of processes
-#define MAX_TIME 20 // Maximum time steps
+// Function to create an empty queue
+Queue* createQueue() {
+    Queue *queue = (Queue*)malloc(sizeof(Queue));
+    if (queue == NULL) {
+        fprintf(stderr, "Memory allocation error\n");
+        exit(EXIT_FAILURE);
+    }
+    queue->front = queue->rear = NULL;
+    return queue;
+}
 
-void schedule_processes(struct workload_item_t *workload, size_t workload_size) {
-    // Initialize variables to track CPU occupation and process status
-    int cpu[MAX_TIME] = {0}; // Initialize CPU occupation for each time step
+// Function to check if the queue is empty
+int isEmpty(Queue *queue) {
+    return (queue->front == NULL);
+}
 
-    // Iterate over each process
-    for (size_t i = 0; i < workload_size; i++) {
-        // Initialize idle time for the current process
-        workload[i].idle = 0;
-
-        // Iterate over each time step
-        for (size_t t = workload[i].ts; t <= workload[i].tf; t++) {
-            // Check if the CPU is already occupied at this time step
-            if (cpu[t] == 0) {
-                // Mark CPU as occupied for the current time step
-                cpu[t] = 1;
-            } else {
-                // Increment idle time for the current process
-                workload[i].idle++;
-            }
-        }
+// Function to enqueue a workload item
+void enqueue(Queue *queue, struct workload_item_t *item) {
+    Node *newNode = (Node*)malloc(sizeof(Node));
+    if (newNode == NULL) {
+        fprintf(stderr, "Memory allocation error\n");
+        exit(EXIT_FAILURE);
+    }
+    newNode->item = item;
+    newNode->next = NULL;
+    if (isEmpty(queue)) {
+        queue->front = queue->rear = newNode;
+    } else {
+        queue->rear->next = newNode;
+        queue->rear = newNode;
     }
 }
 
+// Function to dequeue a workload item
+struct workload_item_t* dequeue(Queue *queue) {
+    if (isEmpty(queue)) {
+        fprintf(stderr, "Error: Queue is empty\n");
+        exit(EXIT_FAILURE);
+    }
+    Node *temp = queue->front;
+    struct workload_item_t *item = temp->item;
+    queue->front = queue->front->next;
+    free(temp);
+    return item;
+}
 
+// Function to free memory allocated for the queue
+void freeQueue(Queue *queue) {
+    while (!isEmpty(queue)) {
+        dequeue(queue);
+    }
+    free(queue);
+}
+
+
+==================================================
+File: C:/Users/murad/Programming/DSA_2/Project/queue.h
+==================================================
+#ifndef QUEUE_H
+#define QUEUE_H
+
+#include "workload.h"
+
+// Define structure for a node in the queue
+typedef struct Node {
+    struct workload_item_t *item;
+    struct Node *next;
+} Node;
+
+// Define structure for the queue
+typedef struct {
+    Node *front;
+    Node *rear;
+} Queue;
+
+// Function prototypes
+Queue* createQueue();
+int isEmpty(Queue *queue);
+void enqueue(Queue *queue, struct workload_item_t *item);
+struct workload_item_t* dequeue(Queue *queue);
+void freeQueue(Queue *queue);
+
+#endif /* QUEUE_H */
+
+
+==================================================
+File: C:/Users/murad/Programming/DSA_2/Project/scheduler.c
+==================================================
+// Include necessary headers
+#include "scheduler.h"
+#include "queue.h"
+#include <stdio.h>
+#include <stdlib.h>
+
+// Function to schedule processes using a queue
+// Function to schedule processes using a queue
+void schedule_processes(struct workload_item_t *workload, size_t workload_size) {
+    // Sort workload items by starting time
+    qsort(workload, workload_size, sizeof(struct workload_item_t), compare_workload_items);
+
+    // Initialize CPU occupation and queues for pending and running processes
+    Queue *pendingQueue = createQueue();
+    Queue *runningQueue = createQueue();
+
+    // Enqueue all workload items into the pending queue
+    for (size_t i = 0; i < workload_size; i++) {
+        enqueue(pendingQueue, &workload[i]);
+    }
+
+    // Simulate CPU scheduling
+    int time = 0;
+    while (!isEmpty(pendingQueue) || !isEmpty(runningQueue)) {
+        // Check for pending processes to start
+        while (!isEmpty(pendingQueue) && ((struct workload_item_t *)peek(pendingQueue))->ts <= time) {
+            struct workload_item_t *process = dequeue(pendingQueue);
+            printf("Process %s (PID: %d) started at time %d\n", process->cmd, process->pid, time);
+            enqueue(runningQueue, process);
+        }
+
+        // Execute the running process
+        if (!isEmpty(runningQueue)) {
+            struct workload_item_t *currentProcess = peek(runningQueue);
+            printf("Executing process %s (PID: %d) at time %d\n", currentProcess->cmd, currentProcess->pid, time);
+            currentProcess->tf--;
+            if (currentProcess->tf == 0) {
+                printf("Process %s (PID: %d) completed at time %d\n", currentProcess->cmd, currentProcess->pid, time);
+                dequeue(runningQueue);
+            }
+        } else {
+            printf("CPU idle at time %d\n", time);
+        }
+
+        time++;
+    }
+
+    // Free memory allocated for queues
+    freeQueue(pendingQueue);
+    freeQueue(runningQueue);
+}
+
+
+// Function prototype for comparing workload items by starting time (ts)
+int compare_workload_items(const void *a, const void *b) {
+    const struct workload_item_t *itemA = (const struct workload_item_t *)a;
+    const struct workload_item_t *itemB = (const struct workload_item_t *)b;
+
+    if (itemA->ts < itemB->ts) return -1;
+    if (itemA->ts > itemB->ts) return 1;
+    return 0;
+}
+
+// Function to print schedule for current timestep
 void print_schedule(struct workload_item_t *workload, size_t workload_size) {
     // Print header for the chronogram
     printf("        ");
@@ -72,6 +201,9 @@ void print_schedule(struct workload_item_t *workload, size_t workload_size) {
             printf(".");
     }
     printf("\n");
+
+    // Sort workload items by starting time
+    qsort(workload, workload_size, sizeof(struct workload_item_t), compare_workload_items);
 
     // Iterate over each process
     for (size_t i = 0; i < workload_size; i++) {
@@ -84,7 +216,7 @@ void print_schedule(struct workload_item_t *workload, size_t workload_size) {
 
         // Print X for each time step where process is scheduled
         for (size_t t = 0; t < MAX_TIME; t++) {
-            if (workload[i].ts <= t && t <= finish_time) {
+            if (workload[i].ts <= t && t <= workload[i].tf) {
                 printf("X");
             } else {
                 printf(".");
@@ -105,22 +237,26 @@ void print_schedule(struct workload_item_t *workload, size_t workload_size) {
 
 
 ==================================================
-File: C:/Users/murad/Programming/DSA_2/Project\scheduler.h
+File: C:/Users/murad/Programming/DSA_2/Project/scheduler.h
 ==================================================
 #ifndef SCHEDULER_H
 #define SCHEDULER_H
 
 #include "workload.h"
 
+#define MAX_TIME 20 // Maximum time steps
+
 // Function prototypes
 void schedule_processes(struct workload_item_t *workload, size_t workload_size);
 void print_schedule(struct workload_item_t *workload, size_t workload_size);
+// Function prototype for comparing workload items by starting time (ts)
+int compare_workload_items(const void *a, const void *b);
 
 #endif /* SCHEDULER_H */
 
 
 ==================================================
-File: C:/Users/murad/Programming/DSA_2/Project\workload.c
+File: C:/Users/murad/Programming/DSA_2/Project/workload.c
 ==================================================
 #include <stdio.h>
 #include <stdlib.h>
@@ -218,9 +354,8 @@ int read_workload(const char *filename, struct workload_item_t *workload, size_t
     return 1;
 }
 
-
 ==================================================
-File: C:/Users/murad/Programming/DSA_2/Project\workload.h
+File: C:/Users/murad/Programming/DSA_2/Project/workload.h
 ==================================================
 #ifndef WORKLOAD_H
 #define WORKLOAD_H
@@ -245,5 +380,310 @@ struct workload_item_t {
 int read_workload(const char *filename, struct workload_item_t *workload, size_t *workload_size);
 
 #endif /* WORKLOAD_H */
+
+
+==================================================
+File: C:/Users/murad/Programming/DSA_2/Project/saleh\main.c
+==================================================
+#include <stdio.h>
+#include <stdlib.h>
+#include "queue.h"
+#include "scheduler.h"
+
+int main() {
+    Queue *running = queue_init();
+    Queue *waiting = queue_init();
+
+
+    // Define an array to hold the workload items
+    workload_item items[] = {
+        {0, -1, 0, 18, 0, "init", 10},
+        {1, 0, 1, 16, 0, "bash", 1},
+        {2, 0, 3, 16, 0, "bash", 1},
+        {3, 1, 4, 6, 0, "find", 2},
+        {4, 1, 7, 9, 0, "gcc", 5},
+        {5, 4, 8, 9, 0, "ld", 4},
+        {6, 2, 10, 13, 0, "ssh", 3},
+        {7, 6, 11, 13, 0, "crypt", 5},
+        {8, 2, 14, 16, 0, "snake", 4},
+        {9, 1, 14, 15, 0, "cat", 5}
+    };
+
+    // Calculate the size of the array
+    int numItems = sizeof(items) / sizeof(items[0]);
+
+    // Push each item from the array into the waiting queue
+    for (int i = 0; i < numItems; i++) {
+        enqueue(waiting, items[i]);
+    }
+
+    // Display the queue before scheduling
+    printf("Queue before scheduling:\n");
+    display(waiting);
+
+    // Apply scheduling
+    for (int time = 0; time <= 20; time++) {
+        schedule(running, waiting, time);
+    }
+
+    // Display the queue after scheduling
+    printf("\nQueue after scheduling:\n");
+    display(waiting);
+
+    return 0;
+}
+
+
+==================================================
+File: C:/Users/murad/Programming/DSA_2/Project/saleh\queue.c
+==================================================
+#include <stdio.h>
+#include <stdlib.h>
+#include "workload_item.h"
+
+struct node {
+    workload_item data;
+    struct node* next;
+};
+
+typedef struct node Node;
+
+typedef struct {
+    Node* front;
+    Node* rear;
+} Queue;
+
+Queue* queue_init() {
+    Queue* queue = (Queue*)malloc(sizeof(Queue));
+    if (queue == NULL) {
+        printf("Memory allocation failed.\n");
+        exit(EXIT_FAILURE);
+    }
+    queue->front = NULL;
+    queue->rear = NULL;
+    return queue;
+}
+void enqueue(Queue* queue, workload_item item) {
+    Node* newNode = (Node*)malloc(sizeof(Node));
+    newNode->data = item;
+    newNode->next = NULL;
+    if (queue->front == NULL && queue->rear == NULL) {
+        queue->front = queue->rear = newNode;
+    } else {
+        queue->rear->next = newNode;
+        queue->rear = newNode;
+    }
+}
+
+void dequeue(Queue* queue) {
+    if (queue->front == NULL) {
+        printf("Queue is empty\n");
+        return;
+    }
+    Node* temp = queue->front;
+    if (queue->front == queue->rear) {
+        queue->front = queue->rear = NULL;
+    } else {
+        queue->front = queue->front->next;
+    }
+    free(temp);
+}
+
+void display(Queue* queue) {
+    if (queue->front == NULL) {
+        printf("Queue is empty\n");
+        return;
+    }
+    Node* temp = queue->front;
+    while (temp != NULL) {
+        printf("PID: %d, PPID: %d, Start: %zu, Finish: %zu, Idle: %zu, Command: %s, Priority: %d\n",
+            temp->data.pid, temp->data.ppid, temp->data.ts, temp->data.tf, temp->data.idle, temp->data.cmd, temp->data.prio);
+        temp = temp->next;
+    }
+}
+
+==================================================
+File: C:/Users/murad/Programming/DSA_2/Project/saleh\queue.h
+==================================================
+#ifndef QUEUE_H
+#define QUEUE_H
+
+#include "workload_item.h"
+
+struct node {
+    workload_item data;
+    struct node* next;
+};
+
+typedef struct node Node;
+
+typedef struct {
+    Node* front;
+    Node* rear;
+} Queue;
+
+void enqueue(Queue* queue, workload_item item);
+void dequeue(Queue* queue);
+void display(Queue* queue);
+Queue* queue_init();
+
+#endif /* QUEUE_H */
+
+
+==================================================
+File: C:/Users/murad/Programming/DSA_2/Project/saleh\scheduler.c
+==================================================
+// scheduler.c
+
+#include "scheduler.h"
+#include <stdio.h>
+
+// Function to perform a scheduling round
+void schedule(Queue* running, Queue* waiting, int time) {
+    int cpuCapability = 20; // Example CPU capability, you can change this value
+    int currentTime = time;
+
+    // Identify all possible processes
+    Queue* possibleProcesses = identifyPossibleProcesses(waiting, currentTime);
+
+    // Select current processes
+    Queue* currentProcesses = selectCurrentProcesses(possibleProcesses, currentTime);
+
+    // Calculate the sum of priorities of current processes
+    int sumPriorities = calculateSumPriorities(currentProcesses);
+
+    // Check if the sum of priorities exceeds CPU capability
+    if (sumPriorities <= cpuCapability) {
+        // Enqueue all current processes into the running queue
+        Node* current = currentProcesses->front;
+        while (current != NULL) {
+            enqueue(running, current->data);
+            current = current->next;
+        }
+    } else {
+        // Enqueue only processes with greater priority into the running queue
+        // and the rest into the waiting queue
+        separateProcesses(running, waiting, currentProcesses, cpuCapability);
+    }
+
+    // Increment idle time and delay termination time for de-scheduled processes
+    updateProcesses(waiting, currentTime);
+}
+
+
+// Function to identify all possible processes (tf > t)
+Queue* identifyPossibleProcesses(Queue* waiting, int currentTime) {
+    Queue* possibleProcesses = queue_init();
+    Node* current = waiting->front;
+    while (current != NULL) {
+        if (current->data.tf > currentTime) {
+            enqueue(possibleProcesses, current->data);
+        }
+        current = current->next;
+    }
+    return possibleProcesses;
+}
+
+// Function to select current processes (ts â‰¤ t â‰¤ tf)
+Queue* selectCurrentProcesses(Queue* possibleProcesses, int currentTime) {
+    Queue* currentProcesses = queue_init();
+    Node* current = possibleProcesses->front;
+    while (current != NULL) {
+        if (current->data.ts <= currentTime && currentTime <= current->data.tf) {
+            enqueue(currentProcesses, current->data);
+        }
+        current = current->next;
+    }
+    return currentProcesses;
+}
+
+// Function to calculate the sum of priorities of current processes
+int calculateSumPriorities(Queue* currentProcesses) {
+    int sum = 0;
+    Node* current = currentProcesses->front;
+    while (current != NULL) {
+        sum += current->data.prio;
+        current = current->next;
+    }
+    return sum;
+}
+
+// Function to separate processes based on CPU capability
+void separateProcesses(Queue* running, Queue* waiting, Queue* currentProcesses, int cpuCapability) {
+    Node* current = currentProcesses->front;
+    while (current != NULL) {
+        if (current->data.prio <= cpuCapability) {
+            enqueue(running, current->data);
+        } else {
+            enqueue(waiting, current->data);
+        }
+        current = current->next;
+    }
+}
+
+// Function to update processes (increment idle time and delay termination time)
+void updateProcesses(Queue* waiting, int currentTime) {
+    Node* current = waiting->front;
+    while (current != NULL) {
+        if (current->data.ts < currentTime && currentTime <= current->data.tf) {
+            current->data.idle++;
+            current->data.tf++;
+        }
+        current = current->next;
+    }
+}
+
+
+==================================================
+File: C:/Users/murad/Programming/DSA_2/Project/saleh\scheduler.h
+==================================================
+// scheduler.h
+
+#ifndef SCHEDULER_H
+#define SCHEDULER_H
+
+#include "queue.h"
+
+// Function prototypes
+void schedule(Queue* running, Queue* waiting, int time);
+Queue* identifyPossibleProcesses(Queue* waiting, int currentTime);
+Queue* selectCurrentProcesses(Queue* possibleProcesses, int currentTime);
+int calculateSumPriorities(Queue* currentProcesses);
+void separateProcesses(Queue* running, Queue* waiting, Queue* currentProcesses, int cpuCapability);
+void updateProcesses(Queue* waiting, int currentTime);
+
+#endif /* SCHEDULER_H */
+
+
+==================================================
+File: C:/Users/murad/Programming/DSA_2/Project/saleh\workload_item.c
+==================================================
+#include <stdio.h>
+#include <stdlib.h>
+#include "workload_item.h"
+
+// Implement any functions related to workload_item here
+
+
+==================================================
+File: C:/Users/murad/Programming/DSA_2/Project/saleh\workload_item.h
+==================================================
+#ifndef WORKLOAD_ITEM_H
+#define WORKLOAD_ITEM_H
+
+#include <stddef.h>
+struct workload_item_t {
+    int pid;         //< the event id
+    int ppid;        //< the event parent id
+    size_t ts;       //< start date
+    size_t tf;       //< finish date
+    size_t idle;     //< total time the process has been idle;
+    char *cmd;       //< the binary name
+    int prio;        //< process priority
+};
+
+typedef struct workload_item_t workload_item;
+
+#endif /* WORKLOAD_ITEM_H */
 
 

@@ -1,24 +1,47 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include "queue.h"
+#include "scheduler.h"
 
 int main() {
-    workload_item item1 = {1, 0, 100, 200, 50, "cmd1", 1};
-    workload_item item2 = {2, 1, 300, 400, 60, "cmd2", 2};
-    workload_item item3 = {3, 1, 500, 600, 70, "cmd3", 3};
+    Queue *running = queue_init();
+    Queue *waiting = queue_init();
 
-    enqueue(item1);
-    enqueue(item2);
-    enqueue(item3);
 
-    printf("Queue after enqueue:\n");
-    display();
+    // Define an array to hold the workload items
+    workload_item items[] = {
+        {0, -1, 0, 18, 0, "init", 10},
+        {1, 0, 1, 16, 0, "bash", 1},
+        {2, 0, 3, 16, 0, "bash", 1},
+        {3, 1, 4, 6, 0, "find", 2},
+        {4, 1, 7, 9, 0, "gcc", 5},
+        {5, 4, 8, 9, 0, "ld", 4},
+        {6, 2, 10, 13, 0, "ssh", 3},
+        {7, 6, 11, 13, 0, "crypt", 5},
+        {8, 2, 14, 16, 0, "snake", 4},
+        {9, 1, 14, 15, 0, "cat", 5}
+    };
 
-    dequeue();
-    dequeue();
+    // Calculate the size of the array
+    int numItems = sizeof(items) / sizeof(items[0]);
 
-    printf("\nQueue after dequeue:\n");
-    display();
+    // Push each item from the array into the waiting queue
+    for (int i = 0; i < numItems; i++) {
+        enqueue(waiting, items[i]);
+    }
+
+    // Display the queue before scheduling
+    printf("Queue before scheduling:\n");
+    display(waiting);
+
+    // Apply scheduling
+    for (int time = 0; time <= 20; time++) {
+        schedule(running, waiting, time);
+    }
+
+    // Display the queue after scheduling
+    printf("\nQueue after scheduling:\n");
+    display(waiting);
 
     return 0;
 }
-    
